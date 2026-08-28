@@ -42,11 +42,17 @@ NSString *_formatProductID(uint16_t product_id) {
 			}
 		}
 	}
-	PGS_saveSettings(_configuration);
+	if(PGS_saveSettings(_configuration)!=0) {
+		UIAlertController *save_error=[UIAlertController alertControllerWithTitle:NSSTR("Save Failed") message:NSSTR("PodsGrant could not save the configuration.") preferredStyle:UIAlertControllerStyleAlert];
+		[save_error addAction:[UIAlertAction actionWithTitle:NSSTR("OK") style:UIAlertActionStyleCancel handler:nil]];
+		[self presentViewController:save_error animated:YES completion:nil];
+		return;
+	}
 	[self.navigationController popViewControllerAnimated:1];
 }
 
 - (void)resetSettings {
+	PGS_freeSettings(_configuration);
 	PGS_readSettings_to(_configuration, 1);
 	[self reloadData];
 }
@@ -56,8 +62,11 @@ NSString *_formatProductID(uint16_t product_id) {
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
-	PGS_readSettings_to(_configuration, 1);
-	return [super viewWillDisappear:animated];
+	[super viewWillDisappear:animated];
+	if(self.isMovingFromParentViewController) {
+		PGS_freeSettings(_configuration);
+		PGS_readSettings_to(_configuration, 1);
+	}
 }
 
 - (void)viewDidLoad {
@@ -105,15 +114,18 @@ NSString *_formatProductID(uint16_t product_id) {
 		[self presentViewController:nav animated:1 completion:nil];
 		return;
 	}else{
-		struct product_id_map_entry_custom *val;
-		if(!_configuration->product_id_mapping) {
-			val=_configuration->product_id_mapping=malloc(sizeof(struct product_id_map_entry_custom));
-			_configuration->product_id_mapping_cnt++;
-		}else{
-			_configuration->product_id_mapping_cnt++;
-			_configuration->product_id_mapping=realloc(_configuration->product_id_mapping,_configuration->product_id_mapping_cnt*sizeof(struct product_id_map_entry_custom));
-			val=_configuration->product_id_mapping+_configuration->product_id_mapping_cnt-1;
-		}
+			uint8_t new_count=_configuration->product_id_mapping_cnt+1;
+			struct product_id_map_entry_custom *resized=realloc(_configuration->product_id_mapping, new_count*sizeof(struct product_id_map_entry_custom));
+			if(!resized) {
+				UIAlertController *allocation_error=[UIAlertController alertControllerWithTitle:NSSTR("Unable to Add Mapping") message:NSSTR("There is not enough memory to add another mapping.") preferredStyle:UIAlertControllerStyleAlert];
+				[allocation_error addAction:[UIAlertAction actionWithTitle:NSSTR("OK") style:UIAlertActionStyleCancel handler:nil]];
+				[self presentViewController:allocation_error animated:YES completion:nil];
+				return;
+			}
+			_configuration->product_id_mapping=resized;
+			_configuration->product_id_mapping_cnt=new_count;
+			struct product_id_map_entry_custom *val=&resized[new_count-1];
+			memset(val, 0, sizeof(*val));
 		[self reloadData];
 		PGSProductIDEditingViewController *editingVC=[[PGSProductIDEditingViewController alloc] initWithEntry:val delegate:self isConstant:0];
 		UINavigationController *nav=[[UINavigationController alloc] initWithRootViewController:editingVC];
@@ -127,8 +139,17 @@ NSString *_formatProductID(uint16_t product_id) {
 }
 
 - (void)deleteConfigurationAtAddress:(struct product_id_map_entry_custom *)addr {
-	memcpy(addr, addr+1, (_configuration->product_id_mapping_cnt-(addr-_configuration->product_id_mapping))*sizeof(struct product_id_map_entry_custom));
+	size_t index=(size_t)(addr-_configuration->product_id_mapping);
+	if(index>=_configuration->product_id_mapping_cnt)
+		return;
+	size_t remaining=_configuration->product_id_mapping_cnt-index-1;
+	if(remaining)
+		memmove(addr, addr+1, remaining*sizeof(struct product_id_map_entry_custom));
 	_configuration->product_id_mapping_cnt--;
+	if(!_configuration->product_id_mapping_cnt) {
+		free(_configuration->product_id_mapping);
+		_configuration->product_id_mapping=NULL;
+	}
 	[self reloadData];
 }
 
@@ -137,10 +158,7 @@ NSString *_formatProductID(uint16_t product_id) {
 		const struct product_id_map_entry *entry=product_id_map_preset+indexPath.row;
 		UITableViewCell *presetCell=[[UITableViewCell alloc] initWithStyle:1 reuseIdentifier:NSSTR("productIDMC_preset")];
 		presetCell.textLabel.text=_formatProductID(entry->original);
-		//if(!presetCell.contentView)presetCell.contentView=[[UILabel alloc] initWithFrame:CGRectMake(0,0,260,25)];
 		presetCell.detailTextLabel.text=_formatProductID(entry->target);
-		//[((UILabel *)(presetCell.contentView)) sizeToFit];
-		//presetCell.selectionStyle=UITableViewCellSelectionStyleNone;
 		return presetCell;
 	}else if(indexPath.section==1) {
 		if(indexPath.row==_configuration->product_id_mapping_cnt) {
@@ -152,9 +170,7 @@ NSString *_formatProductID(uint16_t product_id) {
 		struct product_id_map_entry_custom *entry=_configuration->product_id_mapping+indexPath.row;
 		UITableViewCell *confCell=[[UITableViewCell alloc] initWithStyle:1 reuseIdentifier:NSSTR("productIDMC_conf")];
 		confCell.textLabel.text=_formatProductID(entry->original);
-		//if(!confCell.contentView)confCell.contentView=[[UILabel alloc] initWithFrame:CGRectMake(0,0,260,25)];
 		confCell.detailTextLabel.text=_formatProductID(entry->target);
-		//[((UILabel *)confCell.contentView) sizeToFit];
 		confCell.accessoryType=UITableViewCellAccessoryDisclosureIndicator;
 		return confCell;
 	}

@@ -1,7 +1,16 @@
 #!/bin/sh
 
-echo Reloading daemons
-killall -TERM bluetoothd 2>/dev/null || true
-killall -TERM sharingd 2>/dev/null || true
-killall -TERM heard 2>/dev/null ||true
-killall -TERM SharingViewService 2>/dev/null || true
+HELPER_LABEL="com.lns.pogr.respring"
+HELPER_PLIST="/var/jb/Library/LaunchDaemons/${HELPER_LABEL}.plist"
+
+/var/jb/usr/bin/launchctl bootout "system/${HELPER_LABEL}" 2>/dev/null || true
+if ! /var/jb/usr/bin/launchctl bootstrap system "$HELPER_PLIST"; then
+	echo "Failed to register the PodsGrant respring helper." >&2
+	exit 1
+fi
+
+/var/jb/usr/bin/killall -TERM bluetoothd 2>/dev/null || true
+/var/jb/usr/bin/killall -TERM sharingd 2>/dev/null || true
+/var/jb/usr/bin/killall -TERM SharingViewService 2>/dev/null || true
+
+exit 0

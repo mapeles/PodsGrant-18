@@ -1,9 +1,9 @@
 Package: com.lns.pogr
 Name: PodsGrant
-Version: 0.5.5~prerelease3
+Version: 0.6.0
 Architecture: iphoneos-arm
-Description: Tweak for better AirPods compatibility on old devices
-Maintainer: Ruphane
-Author: Ruphane
+Description: PodsGrant compatibility fork for iOS 18.7.1 and Dopamine
+Maintainer: mapeles
+Author: Ruphane, mapeles
 Section: Tweaks
-Depends: mobilesubstrate (>= 0.9.5000)
+Depends: firmware (>= 18.0), firmware (<< 19.0), dopamine-basebin-link, mobilesubstrate (>= 0.9.5000)

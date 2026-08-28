@@ -4,34 +4,32 @@
 
 static struct podsgrant_settings *settings;
 
-%group sharing_hook_grp
+%group SharingHooks
 
 %hook SFBLEScanner
 
-- (id)pairingParsePayload:(NSData *)payload identifier:(id)idf bleDevice:(id)bleDev peerInfo:(id)peerInfo {
-	uint16_t patched=PGS_patchProductId(settings, *(uint16_t*)(payload.bytes+5));
-	if(patched) {
-		char *newPayload=malloc(payload.length);
-		memcpy(newPayload, payload.bytes, payload.length);
-		*(uint16_t*)(newPayload+5)=patched;
-		id ret=%orig([NSData dataWithBytes:newPayload length:payload.length], idf, bleDev, peerInfo);
-		free(newPayload);
-		return ret;
-	}
-	return %orig;
+- (id)pairingParsePayload:(NSData *)payload identifier:(id)identifier bleDevice:(id)bleDevice peerInfo:(id)peerInfo {
+	if(payload.length<7)
+		return %orig;
+	uint16_t original=*(const uint16_t *)((const uint8_t *)payload.bytes+5);
+	uint16_t patched=PGS_patchProductId(settings, original);
+	if(!patched)
+		return %orig;
+	NSMutableData *newPayload=[payload mutableCopy];
+	*(uint16_t *)((uint8_t *)newPayload.mutableBytes+5)=patched;
+	return %orig(newPayload, identifier, bleDevice, peerInfo);
 }
 
-- (id)pairingParsePayload:(NSData *)payload identifier:(id)idf bleDevice:(id)bleDev {
-	uint16_t patched=PGS_patchProductId(settings, *(uint16_t*)(payload.bytes+5));
-	if(patched) {
-		char *newPayload=malloc(payload.length);
-		memcpy(newPayload, payload.bytes, payload.length);
-		*(uint16_t*)(newPayload+5)=patched;
-		id ret=%orig([NSData dataWithBytes:newPayload length:payload.length], idf, bleDev);
-		free(newPayload);
-		return ret;
-	}
-	return %orig;
+- (id)pairingParsePayload:(NSData *)payload identifier:(id)identifier bleDevice:(id)bleDevice {
+	if(payload.length<7)
+		return %orig;
+	uint16_t original=*(const uint16_t *)((const uint8_t *)payload.bytes+5);
+	uint16_t patched=PGS_patchProductId(settings, original);
+	if(!patched)
+		return %orig;
+	NSMutableData *newPayload=[payload mutableCopy];
+	*(uint16_t *)((uint8_t *)newPayload.mutableBytes+5)=patched;
+	return %orig(newPayload, identifier, bleDevice);
 }
 
 %end
@@ -39,25 +37,16 @@ static struct podsgrant_settings *settings;
 %end
 
 %dtor {
-	if(settings) {
-		PGS_freeSettings(settings);
-	}
+	PGS_freeSettings(settings);
 }
 
 %ctor {
-	char exec_path[512]={0};
-	uint32_t len=512;
-	_NSGetExecutablePath(exec_path, &len);
-	//if(strcmp(exec_path, "/usr/libexec/sharingd")==0)
-	if(memcmp(exec_path, "/usr/sbin/bluetoothd", 21)!=0) {
-		settings=PGS_readSettings(0);
-		if(!settings->is_tweak_enabled) {
-			PGS_freeSettings(settings);
-			settings=NULL;
-			return;
-		}
-		%init(sharing_hook_grp);
-	}else{
-		settings=NULL;
-	}
+	char executablePath[512]={0};
+	uint32_t pathLength=sizeof(executablePath);
+	if(_NSGetExecutablePath(executablePath, &pathLength)!=0 || strcmp(executablePath, "/usr/sbin/bluetoothd")==0)
+		return;
+	settings=PGS_readSettings(0);
+	if(!settings || !settings->is_tweak_enabled)
+		return;
+	%init(SharingHooks);
 }

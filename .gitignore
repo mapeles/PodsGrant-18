@@ -1,3 +1,5 @@
 .theos/
 packages/
 .DS_Store
+/address_finder/addr_finder
+/XSLogs/

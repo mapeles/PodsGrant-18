@@ -1,4 +1,15 @@
-#! /bin/sh
+#!/bin/sh
 
-echo Removing configuration file
-rm -f /var/mobile/Library/Preferences/com.lns.pogr.bin
+HELPER_LABEL="com.lns.pogr.respring"
+
+case "$1" in
+	remove|purge|disappear)
+		/var/jb/usr/bin/launchctl bootout "system/${HELPER_LABEL}" 2>/dev/null || true
+		;;
+esac
+
+if [ "$1" = "purge" ]; then
+	rm -f /var/mobile/Library/Preferences/com.lns.pogr.bin /var/mobile/Library/Preferences/com.lns.pogr.bin.tmp
+fi
+
+exit 0

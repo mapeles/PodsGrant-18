@@ -11,10 +11,10 @@ struct credit_item {
 };
 
 static const struct credit_item credits[] = {
-	{"Developer", (const struct credit_user[]){{"Ruphane", "https://github.com/LNSSPsd"},{NULL}}},
-	{"Icon Designer", (const struct credit_user[]){{"Torrekie (@Torrekie)", "https://twitter.com/torrekie?lang=en"},{NULL}}},
-	//{"Test Section", (const struct credit_user[]){{"Google", "https://google.com"}, {"Test", NULL}, {"Test2", NULL}, {"GitHub", "https://github.com"},{NULL}}},
-	{NULL}
+	{"Developer", (const struct credit_user[]){{"Ruphane", "https://github.com/LNSSPsd"},{NULL,NULL}}},
+	{"iOS 18 Port", (const struct credit_user[]){{"mapeles", "https://github.com/mapeles/PodsGrant-18"},{NULL,NULL}}},
+	{"Icon Designer", (const struct credit_user[]){{"Torrekie (@Torrekie)", "https://twitter.com/torrekie?lang=en"},{NULL,NULL}}},
+	{NULL,NULL}
 };
 
 @implementation PGSCreditsViewController
